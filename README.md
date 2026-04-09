@@ -75,7 +75,7 @@ Dự án tập trung vào 5 thuật toán chính để giải quyết bài toán
 ## 6. Giao diện dự kiến (Mockup)
 
 Bản thiết kế giao diện (Pygame) đề xuất cho dự án:
-![Mockup giao diện](mockup.png)
+![Mockup giao diện](assets/mockup.png)
 _Hình ảnh minh họa: Bàn cờ 3x3 bên trái, bảng điều khiển và thống kê hiệu năng bên phải._
 
 ---

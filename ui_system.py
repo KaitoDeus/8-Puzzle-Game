@@ -43,7 +43,7 @@ class Label:
         self.text = str(text)
         self.font = get_font(font_size, bold)
         self.color = color
-        self.center = center
+        self.center = center # True: Căn giữa, False: Căn góc trên trái
         
     def handle_event(self, event): pass
     def update(self): pass
@@ -88,13 +88,20 @@ class Button:
         screen.blit(text_surf, text_rect)
 
 class Tile:
-    def __init__(self, rect, value, color=None):
+    def __init__(self, rect, value, index, color=None, callback=None):
         self.rect = pygame.Rect(rect)
         self.value = value
+        self.index = index
         self.font = get_font(36, bold=True)
         self.color = color if color else (255, 255, 255)
+        self.callback = callback
         
-    def handle_event(self, event): pass
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1 and self.rect.collidepoint(event.pos):
+                if self.callback:
+                    self.callback(self.index)
+                    
     def update(self): pass
         
     def draw(self, screen):

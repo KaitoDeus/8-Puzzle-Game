@@ -1,6 +1,9 @@
 import pygame
 import sys
 from ui_system import Panel, Button, Label, Tile, UIUtils, BG_COLOR, PRIMARY_ACCENT, SECONDARY_ACCENT, SUCCESS_ACCENT, DANGER_ACCENT, SUBTEXT_COLOR, BORDER_COLOR
+from game_logic import PuzzleGame
+
+game = PuzzleGame()
 
 # Khởi tạo Pygame
 pygame.init()
@@ -12,7 +15,14 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("8-Puzzle Game")
 
 def reset_game():
-    print("Game Reset Requested")
+    game.reset()
+    print("Game Reset")
+
+def handle_tile_click(index):
+    if game.move(index):
+        print(f"Moved tile at index {index}")
+        if game.is_goal():
+            print("Goal Reached!")
 
 def solve_bfs():
     print("Solving with BFS...")
@@ -21,10 +31,12 @@ def solve_astar():
     print("Solving with A*...")
 
 def undo():
-    print("Undo")
+    if game.undo():
+        print("Undo successful")
 
 def redo():
-    print("Redo")
+    if game.redo():
+        print("Redo successful")
 
 def insert_image():
     print("Inserting Image...")
@@ -55,13 +67,15 @@ def main():
     start_x = board_rect.x + (board_rect.width - (3 * tile_size + 2 * gap)) // 2
     start_y = board_rect.y + (board_rect.height - (3 * tile_size + 2 * gap)) // 2
     
-    colors = [PRIMARY_ACCENT, SECONDARY_ACCENT, SUCCESS_ACCENT]
+    tiles_ui = []
     for i in range(3):
         for j in range(3):
-            val = i * 3 + j + 1
-            if val == 9: val = 0
+            idx = i * 3 + j
+            val = game.current_state[idx]
             tile_rect = (start_x + j * (tile_size + gap), start_y + i * (tile_size + gap), tile_size, tile_size)
-            ui_elements.append(Tile(tile_rect, val, color=colors[(i+j)%3]))
+            tile = Tile(tile_rect, val, idx, callback=handle_tile_click)
+            tiles_ui.append(tile)
+            ui_elements.append(tile)
 
     # 3. Action Buttons (Bottom Bar - Spaced evenly under board)
     btn_w, btn_h = 160, 50
@@ -105,19 +119,21 @@ def main():
             for element in ui_elements:
                 element.handle_event(event)
         
-        # Cập nhật
+        # --- Cập nhật (Update) ---
+        for i, tile in enumerate(tiles_ui):
+            tile.value = game.current_state[i]
+            tile.update()
+
         for element in ui_elements:
-            element.update()
+            if not isinstance(element, Tile):
+                element.update()
             
-        # Vẽ
+        # --- Vẽ (Render) ---
         screen.fill(BG_COLOR)
-        
-        # Page background
         
         for element in ui_elements:
             element.draw(screen)
         
-        # Cập nhật màn hình
         pygame.display.flip()
         clock.tick(60)
 

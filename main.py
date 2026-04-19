@@ -1,139 +1,145 @@
 import pygame
 import sys
-from ui_system import Panel, Button, Label, Tile, UIUtils, BG_COLOR, PRIMARY_ACCENT, SECONDARY_ACCENT, SUCCESS_ACCENT, DANGER_ACCENT, SUBTEXT_COLOR, BORDER_COLOR
+import os
+import tkinter as tk
+from tkinter import filedialog
+from image_processor import load_and_split_image
+from ui_system import Tile, Modal, BG_COLOR
+from ui_statistics import GameDashboard
 from game_logic import PuzzleGame
 
+# Core state variables
 game = PuzzleGame()
+is_finished = False
+victory_modal = None
+image_tiles = {}
+current_image_name = ""
 
-# Khởi tạo Pygame
-pygame.init()
-
-# Cấu hình cửa sổ
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("8-Puzzle Game")
+def exit_game():
+    pygame.quit()
+    sys.exit()
 
 def reset_game():
+    global is_finished, victory_modal
     game.reset()
-    print("Game Reset")
+    is_finished = False
+    victory_modal = None
 
-def handle_tile_click(index):
-    if game.move(index):
-        print(f"Moved tile at index {index}")
-        if game.is_goal():
-            print("Goal Reached!")
-
-def solve_bfs():
-    print("Solving with BFS...")
-
-def solve_astar():
-    print("Solving with A*...")
+def close_modal():
+    global victory_modal
+    victory_modal = None
 
 def undo():
-    if game.undo():
-        print("Undo successful")
+    if not is_finished and game.undo():
+        pass
 
 def redo():
-    if game.redo():
-        print("Redo successful")
+    if not is_finished and game.redo():
+        pass
+
+def solve_bfs():
+    if not is_finished:
+        print("Solving BFS...")
+
+def solve_astar():
+    if not is_finished:
+        print("Solving A*...")
 
 def insert_image():
-    print("Inserting Image...")
+    if is_finished: return
+    file_path = filedialog.askopenfilename(
+        title="Chọn ảnh cho Puzzle",
+        filetypes=[("Image files", "*.png *.jpg *.jpeg *.webp *.svg"), ("All files", "*.*")]
+    )
+    if file_path:
+        new_tiles, name = load_and_split_image(file_path, 190)
+        if new_tiles:
+            global image_tiles, current_image_name
+            image_tiles = new_tiles
+            current_image_name = name
+
+def handle_tile_click(index):
+    global is_finished, victory_modal
+    if not is_finished and game.move(index):
+        if game.is_goal():
+            is_finished = True
+            victory_modal = Modal(
+                "Bạn đã giải thành công!",
+                "Chơi lại", reset_game,
+                "Không", close_modal
+            )
 
 def main():
+    pygame.init()
+    SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("8-Puzzle Game")
+    
+    # Tkinter root for dialogs
+    root = tk.Tk()
+    root.withdraw()
+    
     clock = pygame.time.Clock()
+
+    # Define callbacks for the UI
+    callbacks = {
+        'insert_image': insert_image,
+        'reset_game': reset_game,
+        'solve_bfs': solve_bfs,
+        'solve_astar': solve_astar,
+        'undo': undo,
+        'redo': redo
+    }
     
-    # --- UI Setup ---
-    ui_elements = []
+    # Initialize UI Dashboard (Header, Panels, Buttons)
+    dashboard = GameDashboard(SCREEN_WIDTH, SCREEN_HEIGHT, callbacks)
     
-    # 1. Header & Title Bar Removed
-    # Content starts higher up
-    CONTENT_Y = 20
-    
-    # [namePicture.png] label
-    ui_elements.append(Label((50, CONTENT_Y + 10), "[no_image_loaded.png]", font_size=16, color=SUBTEXT_COLOR))
-    
-    # 2. Main Board Panel
-    board_rect = pygame.Rect(50, CONTENT_Y + 50, 580, 500)
-    ui_elements.append(Panel(board_rect))
-    
-    # "Chèn ảnh" button (Aligned to the top-right of the board)
-    ui_elements.append(Button((board_rect.right - 140, CONTENT_Y, 140, 40), "Chèn ảnh", font_size=18, callback=insert_image))
-    
-    # Tiles (3x3 Grid) - Centered in panel
-    tile_size = 140
-    gap = 15
-    start_x = board_rect.x + (board_rect.width - (3 * tile_size + 2 * gap)) // 2
-    start_y = board_rect.y + (board_rect.height - (3 * tile_size + 2 * gap)) // 2
+    # Initialize Tiles (Logic handled in main loop)
+    tile_size = 190
+    board_rect = dashboard.board_rect
+    start_x = board_rect.x + (board_rect.width - (3 * tile_size)) // 2
+    start_y = board_rect.y + (board_rect.height - (3 * tile_size)) // 2
     
     tiles_ui = []
     for i in range(3):
         for j in range(3):
             idx = i * 3 + j
-            val = game.current_state[idx]
-            tile_rect = (start_x + j * (tile_size + gap), start_y + i * (tile_size + gap), tile_size, tile_size)
-            tile = Tile(tile_rect, val, idx, callback=handle_tile_click)
+            tile_rect = (start_x + j * tile_size, start_y + i * tile_size, tile_size, tile_size)
+            tile = Tile(tile_rect, 0, idx, callback=handle_tile_click)
             tiles_ui.append(tile)
-            ui_elements.append(tile)
 
-    # 3. Action Buttons (Bottom Bar - Spaced evenly under board)
-    btn_w, btn_h = 160, 50
-    btn_y = board_rect.bottom + 30
-    ui_elements.append(Button((board_rect.x, btn_y, btn_w, btn_h), "<< Đi lui", color=PRIMARY_ACCENT, callback=undo))
-    ui_elements.append(Button((board_rect.centerx - btn_w//2, btn_y, btn_w, btn_h), "Đi tới >>", color=PRIMARY_ACCENT, callback=redo))
-    ui_elements.append(Button((board_rect.right - btn_w, btn_y, btn_w, btn_h), "Chơi lại", color=DANGER_ACCENT, callback=reset_game))
-
-    # 4. Right Side Panels
-    side_x = 660
-    # Algorithm Panel
-    algo_panel = Panel((side_x, CONTENT_Y + 50, 320, 320))
-    ui_elements.append(algo_panel)
-    ui_elements.append(Label((algo_panel.rect.centerx, algo_panel.rect.y + 30), "Giải thuật tối ưu", font_size=24, center=True))
-    
-    ui_elements.append(Button((side_x + 30, algo_panel.rect.y + 80, 260, 90), "Breadth First Search", font_size=20, callback=solve_bfs))
-    ui_elements.append(Button((side_x + 30, algo_panel.rect.y + 190, 260, 90), "A* Search", font_size=20, callback=solve_astar))
-
-    # Stats Panel
-    stats_panel = Panel((side_x, CONTENT_Y + 390, 320, 250))
-    ui_elements.append(stats_panel)
-    ui_elements.append(Label((stats_panel.rect.centerx, stats_panel.rect.y + 30), "Thông số trò chơi", font_size=22, center=True))
-    
-    stats_y = stats_panel.rect.y + 80
-    ui_elements.append(Label((side_x + 30, stats_y), "Thời gian chơi:", font_size=18, color=SUBTEXT_COLOR))
-    ui_elements.append(Label((side_x + 220, stats_y), "00:00", font_size=18))
-    
-    ui_elements.append(Label((side_x + 30, stats_y + 40), "Thời gian giải:", font_size=18, color=SUBTEXT_COLOR))
-    ui_elements.append(Label((side_x + 220, stats_y + 40), "0.0 ms", font_size=18))
-    
-    ui_elements.append(Label((side_x + 30, stats_y + 80), "Số bước duyệt:", font_size=18, color=SUBTEXT_COLOR))
-    ui_elements.append(Label((side_x + 220, stats_y + 80), "0", font_size=18))
-
-    # --- Main Loop ---
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             
-            for element in ui_elements:
-                element.handle_event(event)
+            if is_finished and victory_modal:
+                victory_modal.handle_event(event)
+            else:
+                dashboard.handle_event(event)
+                for tile in tiles_ui:
+                    tile.handle_event(event)
         
-        # --- Cập nhật (Update) ---
+        # --- Update ---
+        dashboard.update_image_name(current_image_name)
+        # Future: update dashboard.update_stats() with real data
+        
         for i, tile in enumerate(tiles_ui):
-            tile.value = game.current_state[i]
-            tile.update()
-
-        for element in ui_elements:
-            if not isinstance(element, Tile):
-                element.update()
-            
-        # --- Vẽ (Render) ---
+            val = game.current_state[i]
+            tile.value = val
+            tile.image = image_tiles.get(val)
+        
+        # --- Render ---
         screen.fill(BG_COLOR)
         
-        for element in ui_elements:
-            element.draw(screen)
-        
+        dashboard.draw(screen)
+        for tile in tiles_ui:
+            tile.draw(screen)
+            
+        if is_finished and victory_modal:
+            victory_modal.draw(screen)
+            
         pygame.display.flip()
         clock.tick(60)
 

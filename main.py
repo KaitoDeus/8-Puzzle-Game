@@ -7,6 +7,9 @@ from image_processor import load_and_split_image
 from ui_system import Tile, Modal, BG_COLOR
 from ui_statistics import GameDashboard
 from game_logic import PuzzleGame
+import bfs_solver
+import astar_solver
+import time
 
 # Core state variables
 game = PuzzleGame()
@@ -15,15 +18,30 @@ victory_modal = None
 image_tiles = {}
 current_image_name = ""
 
+# AI and Animation state
+solve_path = []
+auto_moving = False
+last_move_time = 0
+solve_stats = {"nodes": "-", "time": "-"}
+start_play_time = 0
+elapsed_play_time = 0
+has_started_playing = False
+
 def exit_game():
     pygame.quit()
     sys.exit()
 
 def reset_game():
-    global is_finished, victory_modal
+    global is_finished, victory_modal, auto_moving, solve_path, start_play_time, elapsed_play_time, solve_stats, has_started_playing
     game.reset()
     is_finished = False
     victory_modal = None
+    auto_moving = False
+    solve_path = []
+    has_started_playing = False
+    start_play_time = 0
+    elapsed_play_time = 0
+    solve_stats = {"nodes": "-", "time": "-"}
 
 def close_modal():
     global victory_modal
@@ -38,15 +56,32 @@ def redo():
         pass
 
 def solve_bfs():
-    if not is_finished:
-        print("Solving BFS...")
+    global solve_path, auto_moving, solve_stats, has_started_playing, start_play_time
+    if not is_finished and not auto_moving:
+        path, nodes, duration = bfs_solver.solve(game.current_state, game.goal_state)
+        if path:
+            if not has_started_playing:
+                has_started_playing = True
+                start_play_time = time.time()
+            solve_path = path
+            auto_moving = True
+            solve_stats = {"nodes": str(nodes), "time": f"{duration:.1f} ms"}
 
 def solve_astar():
-    if not is_finished:
-        print("Solving A*...")
+    global solve_path, auto_moving, solve_stats, has_started_playing, start_play_time
+    if not is_finished and not auto_moving:
+        path, nodes, duration = astar_solver.solve(game.current_state, game.goal_state)
+        if path:
+            if not has_started_playing:
+                has_started_playing = True
+                start_play_time = time.time()
+            solve_path = path
+            auto_moving = True
+            solve_stats = {"nodes": str(nodes), "time": f"{duration:.1f} ms"}
 
 def insert_image():
     if is_finished: return
+    # File picker for choosing a puzzle image
     file_path = filedialog.askopenfilename(
         title="Chọn ảnh cho Puzzle",
         filetypes=[("Image files", "*.png *.jpg *.jpeg *.webp *.svg"), ("All files", "*.*")]
@@ -59,8 +94,16 @@ def insert_image():
             current_image_name = name
 
 def handle_tile_click(index):
-    global is_finished, victory_modal
+    global is_finished, victory_modal, has_started_playing, start_play_time, solve_stats
     if not is_finished and game.move(index):
+        if not has_started_playing:
+            has_started_playing = True
+            start_play_time = time.time()
+            
+        if not auto_moving:
+            # Clear AI stats since the user is playing manually
+            solve_stats = {"nodes": "-", "time": "-"}
+
         if game.is_goal():
             is_finished = True
             victory_modal = Modal(
@@ -70,6 +113,7 @@ def handle_tile_click(index):
             )
 
 def main():
+    global auto_moving, last_move_time, solve_path, is_finished, elapsed_play_time, start_play_time, has_started_playing
     pygame.init()
     SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -118,12 +162,32 @@ def main():
                 victory_modal.handle_event(event)
             else:
                 dashboard.handle_event(event)
-                for tile in tiles_ui:
-                    tile.handle_event(event)
+                if not auto_moving: # Disable manual moves during AI playback
+                    for tile in tiles_ui:
+                        tile.handle_event(event)
         
         # --- Update ---
+        current_time = pygame.time.get_ticks()
+        
+        # Handle auto playback
+        if auto_moving and solve_path:
+            if current_time - last_move_time > 300: # 300ms delay between moves
+                move_idx = solve_path.pop(0)
+                handle_tile_click(move_idx)
+                last_move_time = current_time
+                if not solve_path:
+                    auto_moving = False
+        
+        # Update play time
+        if has_started_playing and not is_finished:
+            elapsed_play_time = time.time() - start_play_time
+        
+        mins = int(elapsed_play_time // 60)
+        secs = int(elapsed_play_time % 60)
+        time_str = f"{mins:02d}:{secs:02d}"
+        
         dashboard.update_image_name(current_image_name)
-        # Future: update dashboard.update_stats() with real data
+        dashboard.update_stats(play_time=time_str, solve_time=solve_stats["time"], nodes=solve_stats["nodes"])
         
         for i, tile in enumerate(tiles_ui):
             val = game.current_state[i]

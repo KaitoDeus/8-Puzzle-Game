@@ -26,6 +26,11 @@ solve_stats = {"nodes": "-", "time": "-"}
 start_play_time = 0
 elapsed_play_time = 0
 has_started_playing = False
+last_action_time = time.time()
+hint_tile_index = None
+hint_blink = False
+last_blink_time = 0
+hint_start_time = 0
 
 def exit_game():
     pygame.quit()
@@ -33,6 +38,7 @@ def exit_game():
 
 def reset_game():
     global is_finished, victory_modal, auto_moving, solve_path, start_play_time, elapsed_play_time, solve_stats, has_started_playing
+    global last_action_time, hint_tile_index, hint_blink, last_blink_time
     game.reset()
     is_finished = False
     victory_modal = None
@@ -43,21 +49,35 @@ def reset_game():
     elapsed_play_time = 0
     solve_stats = {"nodes": "-", "time": "-"}
 
+    last_action_time = time.time()
+    hint_tile_index = None
+    hint_blink = False
+    last_blink_time = 0
+    hint_start_time = 0
+
 def close_modal():
     global victory_modal
     victory_modal = None
 
 def undo():
+    global last_action_time, hint_tile_index
     if not is_finished and game.undo():
+        last_action_time = time.time()
+        hint_tile_index = None
         pass
 
 def redo():
+    global last_action_time, hint_tile_index
     if not is_finished and game.redo():
+        last_action_time = time.time()
+        hint_tile_index = None
         pass
 
 def solve_bfs():
     global solve_path, auto_moving, solve_stats, has_started_playing, start_play_time
+    global hint_tile_index
     if not is_finished and not auto_moving:
+        hint_tile_index = None
         path, nodes, duration = bfs_solver.solve(game.current_state, game.goal_state)
         if path:
             if not has_started_playing:
@@ -69,7 +89,9 @@ def solve_bfs():
 
 def solve_astar():
     global solve_path, auto_moving, solve_stats, has_started_playing, start_play_time
+    global hint_tile_index
     if not is_finished and not auto_moving:
+        hint_tile_index = None
         path, nodes, duration = astar_solver.solve(game.current_state, game.goal_state)
         if path:
             if not has_started_playing:
@@ -95,7 +117,11 @@ def insert_image():
 
 def handle_tile_click(index):
     global is_finished, victory_modal, has_started_playing, start_play_time, solve_stats
+    global last_action_time, hint_tile_index
     if not is_finished and game.move(index):
+        last_action_time = time.time()
+        hint_tile_index = None
+
         if not has_started_playing:
             has_started_playing = True
             start_play_time = time.time()
@@ -114,6 +140,7 @@ def handle_tile_click(index):
 
 def main():
     global auto_moving, last_move_time, solve_path, is_finished, elapsed_play_time, start_play_time, has_started_playing
+    global hint_blink, hint_tile_index, last_blink_time
     pygame.init()
     SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -168,6 +195,7 @@ def main():
         
         # --- Update ---
         current_time = pygame.time.get_ticks()
+
         
         # Handle auto playback
         if auto_moving and solve_path:
@@ -193,19 +221,48 @@ def main():
             val = game.current_state[i]
             tile.value = val
             tile.image = image_tiles.get(val)
-        
+
+        # --- Hint after 5 seconds ---
+        if not is_finished and not auto_moving and hint_tile_index is None:
+            if time.time() - last_action_time > 5:
+                path, _, _ = astar_solver.solve(game.current_state, game.goal_state)
+                if path:
+                    hint_tile_index = path[0]  # Suggest the next move
+                    hint_blink = True
+                    last_blink_time = current_time
+                    hint_start_time = time.time()
+ 
+        # Blink effect
+        if hint_tile_index is not None:
+            if current_time - last_blink_time > 300:
+                hint_blink = not hint_blink
+                last_blink_time = current_time
+
+        # Turn off hint after 3 seconds
+        if hint_tile_index is not None and time.time() - hint_start_time > 3:
+            hint_tile_index = None
+            hint_blink = False
+
         # --- Render ---
         screen.fill(BG_COLOR)
         
         dashboard.draw(screen)
         for tile in tiles_ui:
             tile.draw(screen)
+
+        # VẼ GỢI Ý
+        if hint_tile_index is not None and hint_blink:
+            hint_tile = tiles_ui[hint_tile_index]
+            pygame.draw.rect(screen, (255, 255, 0), hint_tile.rect, 8)
             
         if is_finished and victory_modal:
             victory_modal.draw(screen)
             
         pygame.display.flip()
         clock.tick(60)
+
+       
+
 
     pygame.quit()
     sys.exit()

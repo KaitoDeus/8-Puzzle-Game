@@ -140,7 +140,7 @@ def handle_tile_click(index):
 
 def main():
     global auto_moving, last_move_time, solve_path, is_finished, elapsed_play_time, start_play_time, has_started_playing
-    global hint_blink, hint_tile_index, last_blink_time
+    global hint_blink, hint_tile_index, last_blink_time, last_action_time, hint_start_time
     pygame.init()
     SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -222,26 +222,20 @@ def main():
             tile.value = val
             tile.image = image_tiles.get(val)
 
-        # --- Hint after 5 seconds ---
+        # --- Hint after 2.5 seconds ---
         if not is_finished and not auto_moving and hint_tile_index is None:
-            if time.time() - last_action_time > 5:
+            if time.time() - last_action_time > 2.5:
                 path, _, _ = astar_solver.solve(game.current_state, game.goal_state)
                 if path:
                     hint_tile_index = path[0]  # Suggest the next move
                     hint_blink = True
                     last_blink_time = current_time
-                    hint_start_time = time.time()
  
         # Blink effect
         if hint_tile_index is not None:
             if current_time - last_blink_time > 300:
                 hint_blink = not hint_blink
                 last_blink_time = current_time
-
-        # Turn off hint after 3 seconds
-        if hint_tile_index is not None and time.time() - hint_start_time > 3:
-            hint_tile_index = None
-            hint_blink = False
 
         # --- Render ---
         screen.fill(BG_COLOR)
@@ -250,7 +244,7 @@ def main():
         for tile in tiles_ui:
             tile.draw(screen)
 
-        # VẼ GỢI Ý
+        # DRAW HINT
         if hint_tile_index is not None and hint_blink:
             hint_tile = tiles_ui[hint_tile_index]
             pygame.draw.rect(screen, (255, 255, 0), hint_tile.rect, 8)

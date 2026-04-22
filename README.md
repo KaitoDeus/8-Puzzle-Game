@@ -25,6 +25,15 @@ Nhóm thực hiện: Nhóm 4 (Gồm 5 thành viên)
 
 ---
 
+## Yêu cầu hệ thống
+
+- **Python**: Phiên bản 3.10 trở lên (Hỗ trợ tốt nhất 3.12, 3.13 và cả bản preview 3.14).
+- **Thư viện**: 
+  - `pygame-ce`: Phiên bản cộng đồng của Pygame, hỗ trợ tốt các đời Python mới.
+  - `Pillow`: Xử lý cắt ghép ảnh.
+
+---
+
 ## Phân tích bài toán
 
 ### Mục đích bài toán
@@ -186,22 +195,27 @@ _(Hình 2: Ứng dụng tích hợp Sidebar phân tích chỉ số thời gian t
 
 Dự án sử dụng Python cơ bản và thư viện Pygame, có thể chạy thẳng trên mọi hệ điều hành (Windows/macOS/Linux).
 
-**Bước 1:** Đảm bảo máy tính đã cài đặt **Python 3.10** trở lên.
+**Bước 1:** Đảm bảo máy tính đã cài đặt **Python 3.10** hoặc mới hơn.
 
-**Bước 2:** Di chuyển vào thư mục của dự án và cài đặt thư viện đồ họa cần thiết (khuyên dùng môi trường ảo `venv`):
+**Bước 2:** Di chuyển vào thư mục dự án và thiết lập môi trường:
 
 ```bash
-# Tạo và kích hoạt môi trường ảo (Tuỳ chọn)
+# Tạo môi trường ảo (Khuyên dùng để tránh xung đột)
 python -m venv .venv
+
+# Kích hoạt môi trường ảo:
 # - Windows: .venv\Scripts\activate
 # - macOS/Linux: source .venv/bin/activate
 
-# Cài đặt file requirements
+# Cập nhật pip và cài đặt thư viện
+python -m pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
 
-**Bước 3:** Khởi chạy tệp tin chính (Entry Point) của phần mềm:
+**Bước 3:** Khởi chạy trò chơi:
 
 ```bash
 python main.py
 ```
+
+> **Lưu ý**: Dự án sử dụng `pygame-ce` để đảm bảo hoạt động ổn định trên các phiên bản Python mới nhất (3.12+). Nếu bạn đã cài đặt `pygame` bản cũ, hãy gỡ ra trước khi cài đặt requirements.
